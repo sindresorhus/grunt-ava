@@ -1,23 +1,42 @@
 'use strict';
-var childProcess = require('child_process');
-var BIN = require.resolve('ava/cli.js');
+
+var Api = require('ava/api.js');
+var Verbose = require('ava/lib/reporters/verbose');
 
 module.exports = function (grunt) {
 	grunt.registerMultiTask('ava', 'Run AVA tests', function () {
+
 		var cb = this.async();
-		var args = this.filesSrc.concat('--color');
 
-		args.unshift(BIN);
+		var args =  this.filesSrc.concat('--color');
 
-		childProcess.execFile(process.execPath, args, function (err, stdout, stderr) {
-			if (err) {
-				grunt.warn(stderr);
-				cb();
-				return;
-			}
+		var api = new Api();
+ 		var reporter = new Verbose();
+    var logs = '';
 
-			grunt.log.write(stderr);
+ 		reporter.api = api;
+
+ 		api.on('test', function (test) {
+
+			logs += '\n' + reporter.test(test);
+	 	});
+ 		api.on('error', function (error) {
+			logs += '\n' + reporter.unhandledError(error);
+ 		});
+
+		api.run(args).then(function () {
+			logs += '\n' + reporter.finish();
+
+			grunt.log.write('grunt-ava:\n' + logs);
+
 			cb();
-		});
+
+		}).catch(function (error) {
+
+			this.emit('error', new grunt.warn(error));
+			cb();
+			return;
+		}.bind(this));
+
 	});
 };
